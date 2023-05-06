@@ -1,0 +1,5 @@
+{"properties": [{
+  "name": "songday.api.address",
+  "type": "java.lang.String",
+  "description": "SongDay microsservice URI."
+}]}

@@ -23,8 +23,8 @@ public class FeedController {
             @PathVariable String username,
             @RequestParam(defaultValue = "0") int offset,
             @RequestParam(defaultValue = "30") int limit,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Date feedDate) {
-        Feed feed = feedService.generateFeed(username, feedDate, offset, limit);
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Date lastFeedDate) {
+        Feed feed = feedService.generateFeed(username, lastFeedDate, offset, limit);
         return ResponseEntity.ok(feed);
     }
 }

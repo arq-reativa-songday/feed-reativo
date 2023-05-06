@@ -1,9 +1,15 @@
 version: '3.9'
 
+networks:
+  songday-network:
+    name: songday
+
 services:
   feed-api:
-    container_name: feed-api
+    container_name: api-feed
     build: .
     ports:
       - 8083:8083
+    networks:
+      - songday-network
     restart: always

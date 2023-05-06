@@ -15,6 +15,6 @@ public class Feed {
     private int offset;
     private int limit;
     private int size;
-    private int newsPosts;
+    private Integer newsPosts;
     private List<PostDto> posts;
 }
