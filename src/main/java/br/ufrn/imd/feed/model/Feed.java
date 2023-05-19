@@ -17,4 +17,5 @@ public class Feed {
     private int size;
     private Long newsPosts;
     private List<PostDto> posts;
+    private Long totalSongs;
 }

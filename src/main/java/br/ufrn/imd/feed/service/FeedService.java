@@ -24,7 +24,12 @@ public class FeedService {
         // buscar pessoas que o usuário segue
         Mono<Set<String>> followeesMono = this.findFollowees(username);
 
-        return followeesMono.flatMap(followees -> {
+        Mono<Long> songs = songDayClient.countSongs();
+
+        return followeesMono.zipWith(songs).flatMap(t -> {
+            Set<String> followees = t.getT1();
+            Long songsCount = t.getT2();
+
             Date updatedAtOrigin = new Date();
             // buscar posts para o feed
             Mono<List<PostDto>> postsList = this.findPosts(new SearchPostsDto(offset, limit, followees)).collectList();
@@ -51,6 +56,7 @@ public class FeedService {
                                                 .limit(limit)
                                                 .size(posts.size())
                                                 .newsPosts(newsPosts)
+                                                .totalSongs(songsCount)
                                                 .build());
                             });
                 }
@@ -64,6 +70,7 @@ public class FeedService {
                                 .limit(limit)
                                 .size(posts.size())
                                 .newsPosts(null)
+                                .totalSongs(songsCount)
                                 .build());
             });
         });

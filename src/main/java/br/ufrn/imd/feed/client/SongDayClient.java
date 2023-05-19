@@ -21,6 +21,20 @@ public class SongDayClient {
     @Autowired
     private WebClient webClient;
 
+    @Autowired
+    private WebClient webClientSongs;
+
+    public Mono<Long> countSongs() {
+        return webClientSongs
+                .get()
+                .uri("/songs/count")
+                .retrieve()
+                .bodyToFlux(Long.class).next()
+                .onErrorResume(throwable -> {
+                    return Mono.just(null);
+                });
+    }
+
     public Mono<Set<String>> findFollowees(String username) {
         return webClient
                 .get()
