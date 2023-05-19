@@ -31,7 +31,7 @@ public class SongDayClient {
                 .retrieve()
                 .bodyToFlux(Long.class).next()
                 .onErrorResume(throwable -> {
-                    return Mono.just(null);
+                    return Mono.just(0L);
                 });
     }
 
