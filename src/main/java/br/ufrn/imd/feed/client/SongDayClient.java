@@ -1,27 +1,67 @@
 package br.ufrn.imd.feed.client;
 
-import java.util.List;
 import java.util.Set;
 
-import org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.MediaType;
+import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import br.ufrn.imd.feed.dto.PostDto;
 import br.ufrn.imd.feed.dto.SearchPostsCountDto;
 import br.ufrn.imd.feed.dto.SearchPostsDto;
-import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import br.ufrn.imd.feed.exception.NotFoundException;
+import br.ufrn.imd.feed.exception.ServicesCommunicationException;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
-@FeignClient(name = "songday-service", url = "${songday.api.address}")
-public interface SongDayClient {
-    @GetMapping(value = "/users/username/{username}/followees")
-    ResponseEntity<Set<String>> findFollowees(@PathVariable String username);
+@Component
+public class SongDayClient {
+    @Autowired
+    private WebClient webClient;
 
-    @PostMapping(value = "/posts/search")
-    ResponseEntity<List<PostDto>> findPosts(@RequestBody SearchPostsDto search);
+    public Mono<Set<String>> findFollowees(String username) {
+        return webClient
+                .get()
+                .uri("/users/username/"+username+"/followees")
+                .retrieve()
+                .bodyToFlux(new ParameterizedTypeReference<Set<String>>() {}).next()
+                .switchIfEmpty(Mono.error(new NotFoundException("O usuário não está seguindo ninguém")))
+                .onErrorResume(throwable -> {
+                    return Mono.error(new ServicesCommunicationException(
+                            "Erro durante a comunicação com SongDay para recuperar publicações"));
+                });
+    }
 
-    @PostMapping(value = "/posts/search/count")
-    ResponseEntity<Integer> findPostsCount(@RequestBody SearchPostsCountDto search);
+    public Flux<PostDto> findPosts(SearchPostsDto search) {
+        return webClient
+                .post()
+                .uri("/posts/search")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(search)
+                .retrieve()
+                .bodyToFlux(PostDto.class)
+                .onErrorResume(throwable -> {
+                    if (throwable.getLocalizedMessage().contains("404 Not Found")) {
+                        return Mono.empty();
+                    }
+                    return Mono.error(new ServicesCommunicationException(
+                            "Erro durante a comunicação com SongDay a quantidade de novas publicações"));
+                });
+    }
+
+    public Mono<Long> findPostsCount(SearchPostsCountDto search) {
+        return webClient
+                .post()
+                .uri("/posts/search/count")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(search)
+                .retrieve()
+                .bodyToFlux(Long.class).next()
+                .onErrorResume(throwable -> {
+                    return Mono.error(new ServicesCommunicationException(
+                            "Erro durante a comunicação com SongDay a quantidade de novas publicações"));
+                });
+    }
 }
