@@ -8,9 +8,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import br.ufrn.imd.feed.client.SongDayClient;
+import br.ufrn.imd.feed.client.SongsClient;
 import br.ufrn.imd.feed.dto.PostDto;
 import br.ufrn.imd.feed.dto.SearchPostsCountDto;
 import br.ufrn.imd.feed.dto.SearchPostsDto;
+import br.ufrn.imd.feed.exception.NotFoundException;
+import br.ufrn.imd.feed.exception.ServicesCommunicationException;
 import br.ufrn.imd.feed.model.Feed;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -20,11 +23,18 @@ public class FeedService {
     @Autowired
     private SongDayClient songDayClient;
 
+    @Autowired
+    private SongsClient songsClient;
+
     public Mono<Feed> generateFeed(String username, Date lastFeedDate, int offset, int limit) {
         // buscar pessoas que o usuário segue
         Mono<Set<String>> followeesMono = this.findFollowees(username);
 
-        Mono<Long> songs = songDayClient.countSongs();
+        Mono<Long> songs = songsClient.count()
+                .next()
+                .onErrorResume(throwable -> {
+                    return Mono.just(0L);
+                });
 
         return followeesMono.zipWith(songs).flatMap(t -> {
             Set<String> followees = t.getT1();
@@ -77,14 +87,32 @@ public class FeedService {
     }
 
     private Flux<PostDto> findPosts(SearchPostsDto searchPostsDto) {
-        return songDayClient.findPosts(searchPostsDto);
+        return songDayClient.getAll(searchPostsDto)
+                .onErrorResume(throwable -> {
+                    if (throwable.getLocalizedMessage().contains("404 Not Found")) {
+                        return Mono.empty();
+                    }
+                    return Mono.error(new ServicesCommunicationException(
+                            "Erro durante a comunicação com SongDay para recuperar as publicações: " + throwable.getLocalizedMessage()));
+                });
     }
 
     private Mono<Long> findPostsCount(SearchPostsCountDto searchPostsCountDto) {
-        return songDayClient.findPostsCount(searchPostsCountDto);
+        return songDayClient.searchPostsCount(searchPostsCountDto)
+                .onErrorResume(throwable -> {
+                    return Mono.error(new ServicesCommunicationException(
+                            "Erro durante a comunicação com SongDay para recuperar a quantidade de novas publicações: " + throwable.getLocalizedMessage()));
+                })
+                .next();
     }
 
     private Mono<Set<String>> findFollowees(String username) {
-        return songDayClient.findFollowees(username);
+        return songDayClient.getFolloweesByUsername(username)
+                .onErrorResume(throwable -> {
+                    return Mono.error(new ServicesCommunicationException(
+                            "Erro durante a comunicação com SongDay para recuperar os usuários seguidos: " + throwable.getLocalizedMessage()));
+                })
+                .next()
+                .switchIfEmpty(Mono.error(new NotFoundException("O usuário não está seguindo ninguém"))); // TODO testar quando usuário não segue ninguém
     }
 }
