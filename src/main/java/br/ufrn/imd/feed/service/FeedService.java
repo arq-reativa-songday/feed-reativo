@@ -87,7 +87,7 @@ public class FeedService {
     }
 
     private Flux<PostDto> findPosts(SearchPostsDto searchPostsDto) {
-        return songDayClient.getAll(searchPostsDto)
+        return songDayClient.getAll(Mono.just(searchPostsDto))
                 .onErrorResume(throwable -> {
                     if (throwable.getLocalizedMessage().contains("404 Not Found")) {
                         return Mono.empty();
@@ -98,7 +98,7 @@ public class FeedService {
     }
 
     private Mono<Long> findPostsCount(SearchPostsCountDto searchPostsCountDto) {
-        return songDayClient.searchPostsCount(searchPostsCountDto)
+        return songDayClient.searchPostsCount(Mono.just(searchPostsCountDto))
                 .onErrorResume(throwable -> {
                     return Mono.error(new ServicesCommunicationException(
                             "Erro durante a comunicação com SongDay para recuperar a quantidade de novas publicações: " + throwable.getLocalizedMessage()));
