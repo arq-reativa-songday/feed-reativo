@@ -12,7 +12,6 @@ import br.ufrn.imd.feed.client.SongsClient;
 import br.ufrn.imd.feed.dto.PostDto;
 import br.ufrn.imd.feed.dto.SearchPostsCountDto;
 import br.ufrn.imd.feed.dto.SearchPostsDto;
-import br.ufrn.imd.feed.exception.NotFoundException;
 import br.ufrn.imd.feed.exception.ServicesCommunicationException;
 import br.ufrn.imd.feed.model.Feed;
 import reactor.core.publisher.Flux;
@@ -112,7 +111,6 @@ public class FeedService {
                     return Mono.error(new ServicesCommunicationException(
                             "Erro durante a comunicação com SongDay para recuperar os usuários seguidos: " + throwable.getLocalizedMessage()));
                 })
-                .next()
-                .switchIfEmpty(Mono.error(new NotFoundException("O usuário não está seguindo ninguém"))); // TODO testar quando usuário não segue ninguém
+                .next();
     }
 }
