@@ -1,6 +1,7 @@
 package br.ufrn.imd.feed.config;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cloud.client.loadbalancer.LoadBalanced;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
@@ -16,46 +17,36 @@ import reactor.core.publisher.Mono;
 
 @Configuration
 public class WebClientConfig {
-    @Value("${songday.api.address}")
-    private String baseUrlSongDay;
+    @Value("${gateaway.api.address}")
+    private String baseUrl;
 
-    @Value("${songs.api.address}")
-    private String baseUrlSongs;
-
+    @LoadBalanced
     @Bean
-    SongDayClient songDayClient() {
-        WebClient webClient = WebClient.builder()
-                .baseUrl(baseUrlSongDay)
+    WebClient webClient() {
+        return WebClient.builder()
+                .baseUrl(baseUrl)
                 .defaultStatusHandler(
                         httpStatusCode -> HttpStatus.NOT_FOUND == httpStatusCode,
                         response -> Mono.empty())
                 .defaultStatusHandler(
                         HttpStatusCode::is5xxServerError,
                         response -> Mono.error(new ServicesCommunicationException(
-                                "Erro durante a comunicação com SongDay: " + response.toString())))
+                                "Erro durante a comunicação com serviço externo: " + response.toString())))
                 .build();
+    }
 
+    @Bean
+    SongDayClient songDayClient() {
         return HttpServiceProxyFactory
-                .builder(WebClientAdapter.forClient(webClient))
+                .builder(WebClientAdapter.forClient(webClient()))
                 .build()
                 .createClient(SongDayClient.class);
     }
 
     @Bean
     SongsClient songsClient() {
-        WebClient webClient = WebClient.builder()
-                .baseUrl(baseUrlSongs)
-                .defaultStatusHandler(
-                        httpStatusCode -> HttpStatus.NOT_FOUND == httpStatusCode,
-                        response -> Mono.empty())
-                .defaultStatusHandler(
-                        HttpStatusCode::is5xxServerError,
-                        response -> Mono.error(new ServicesCommunicationException(
-                                "Erro durante a comunicação com Songs: " + response.toString())))
-                .build();
-
         return HttpServiceProxyFactory
-                .builder(WebClientAdapter.forClient(webClient))
+                .builder(WebClientAdapter.forClient(webClient()))
                 .build()
                 .createClient(SongsClient.class);
     }
