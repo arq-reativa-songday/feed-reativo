@@ -13,14 +13,14 @@ import org.springframework.web.bind.annotation.RestController;
 
 import br.ufrn.imd.feed.dto.PostDto;
 import br.ufrn.imd.feed.model.Feed;
-import br.ufrn.imd.feed.service.FeedService;
+import br.ufrn.imd.feed.service.FeedServiceWrapper;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @RestController
 public class FeedController {
     @Autowired
-    private FeedService feedService;
+    private FeedServiceWrapper feedService;
 
     @GetMapping(value = "/{username}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Mono<ResponseEntity<Feed>> getFeed(
