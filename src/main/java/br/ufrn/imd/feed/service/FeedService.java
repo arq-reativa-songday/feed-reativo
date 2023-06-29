@@ -153,4 +153,27 @@ public class FeedService {
                     });
                 });
     }
+
+    // Essa solução não está funcionando.
+    // Além disso, quando existir posts com a mesma música, o `Flux<SongDto> songs`
+    // não possuirá repetição e isso seria um problema pro zipWith.
+    // public Flux<PostDto> findFeedPosts(String username, int offset, int limit) {
+    //     // buscar pessoas que o usuário segue
+    //     return this.findFollowees(username)
+    //             .flatMapMany(followees -> {
+    //                 // buscar posts para o feed
+    //                 Flux<PostDto> posts = this.findPosts(new SearchPostsDto(offset, limit, followees)).cache();
+
+    //                 // buscar músicas de cada post
+    //                 Flux<SongDto> songs = songsClient.findAllById(posts.map(PostDto::getSongId));
+
+    //                 return posts.zipWith(songs).flatMap(tuple -> {
+    //                     PostDto post = tuple.getT1();
+    //                     SongDto song = tuple.getT2();
+    //                     if (song != null && song.getId() != null)
+    //                         post.setSong(song);
+    //                     return Mono.just(post);
+    //                 });
+    //             });
+    // }
 }

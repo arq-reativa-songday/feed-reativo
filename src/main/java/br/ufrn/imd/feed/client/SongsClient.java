@@ -14,4 +14,7 @@ public interface SongsClient {
 
     @GetExchange(value = "/songs/{id}")
     public Flux<SongDto> findById(@PathVariable String id);
+
+    // @GetExchange(value = "/songs/search")
+    // public Flux<SongDto> findAllById(@RequestBody Flux<String> ids);
 }
