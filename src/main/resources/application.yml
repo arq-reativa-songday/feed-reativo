@@ -1,0 +1,17 @@
+spring:
+  main:
+    allow-bean-definition-overriding: 'true'
+    web-application-type: 'reactive'
+  cloud:
+    loadbalancer:
+      ribbon:
+        enabled: 'false'
+  application:
+    name: feed-reactive
+  profiles:
+    active: dev
+  config:
+    import: optional:configserver:http://localhost:8888
+
+server:
+  port: 8090

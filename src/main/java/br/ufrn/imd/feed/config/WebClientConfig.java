@@ -1,9 +1,11 @@
 package br.ufrn.imd.feed.config;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.client.loadbalancer.LoadBalanced;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -17,14 +19,17 @@ import reactor.core.publisher.Mono;
 
 @Configuration
 public class WebClientConfig {
-    @Value("${gateaway.api.address}")
-    private String baseUrl;
+//    @Value("${gateaway.api.address}")
+//    private String baseUrl;
+
+    @Autowired
+    private Environment env;
 
     @LoadBalanced
     @Bean
-    WebClient webClient() {
+    public WebClient webClient() {
         return WebClient.builder()
-                .baseUrl(baseUrl)
+                .baseUrl(env.getProperty("gateaway.api.address"))
                 .defaultStatusHandler(
                         httpStatusCode -> HttpStatus.NOT_FOUND == httpStatusCode,
                         response -> Mono.empty())
@@ -36,7 +41,7 @@ public class WebClientConfig {
     }
 
     @Bean
-    SongDayClient songDayClient() {
+    public SongDayClient songDayClient() {
         return HttpServiceProxyFactory
                 .builder(WebClientAdapter.forClient(webClient()))
                 .build()
@@ -44,7 +49,7 @@ public class WebClientConfig {
     }
 
     @Bean
-    SongsClient songsClient() {
+    public SongsClient songsClient() {
         return HttpServiceProxyFactory
                 .builder(WebClientAdapter.forClient(webClient()))
                 .build()
