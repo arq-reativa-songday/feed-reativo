@@ -1,4 +1,7 @@
 spring:
+  data:
+    redis:
+      url: redis://127.0.0.1:6379
   main:
     allow-bean-definition-overriding: 'true'
     web-application-type: 'reactive'
@@ -15,6 +18,10 @@ spring:
     active: dev
   config:
     import: optional:configserver:http://localhost:8888
+api:
+  cached: 'false'
+  cache:
+    local: 'false'
 
 server:
   port: 8090
