@@ -1,7 +1,4 @@
 spring:
-  data:
-    redis:
-      url: redis://127.0.0.1:6379
   main:
     allow-bean-definition-overriding: 'true'
     web-application-type: 'reactive'
@@ -29,8 +26,3 @@ server:
 gateaway:
   api:
     address: http://localhost:8080/
-
-api:
-  cached: 'false'
-  cache:
-    local: 'false'
