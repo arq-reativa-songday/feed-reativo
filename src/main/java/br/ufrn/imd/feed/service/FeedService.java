@@ -29,7 +29,7 @@ public class FeedService {
     public Function<Flux<PostDto>, Tuple2<Flux<PostDto>, Flux<String>>> retrievePostsSongs() {
         return posts -> {
             Flux<String> songsIds = posts.map(PostDto::getSongId).doOnNext(id -> {
-                System.out.println("# id de música a ser buscado: " + id);
+                // System.out.println("[SONGS] id de música a ser buscado: " + id);
             });
             return Tuples.of(posts, songsIds);
         };
@@ -38,19 +38,37 @@ public class FeedService {
     @Bean
     public Function<Tuple2<Flux<PostDto>, Flux<SongDto>>, Flux<PostDto>> buildFeed() {
         return tuple -> {
-            Flux<PostDto> posts = tuple.getT1();
-            Flux<SongDto> songs = tuple.getT2();
+            Flux<PostDto> posts = tuple.getT1().doOnNext(post -> {
+                // System.out.println("[BUILD-POST] Post recebido: " + post.getId() + " - id de song: " + post.getSongId());
+            });
+            Flux<SongDto> songs = tuple.getT2().doOnNext(song -> {
+                // System.out.println("[BUILD-SONG] Música recebida: " + song.getId() + " - " + song.getName());
+            });
 
             // TODO não está funcionando como esperado
-            return posts.join(songs,
-                    post -> Flux.just(post.getSongId()),
-                    song -> Flux.never(),
-                    (post, song) -> {
-                        post.setSong(song);
-                        return post;
-                    }).doOnNext(p -> {
-                        System.out.println("# post com música! id: " + p.getId());
+            // return posts.join(songs,
+            //         post -> Flux.just(post.getSongId()),
+            //         song -> Flux.just(song.getId()),
+            //         (post, song) -> {
+            //             post.setSong(song);
+            //             return post;
+            //         }).doOnNext(p -> {
+            //             System.out.println("# post com música! id: " + p.getId());
+            //         });
+            Flux<PostDto> joinedFlux = posts.zipWith(songs)
+                    .flatMap(t -> {
+                        PostDto post = t.getT1();
+                        post.setSong(t.getT2());
+                        return Flux.just(post);
                     });
+            // Flux<PostDto> joinedFlux = posts.flatMap(post -> songs
+            //         .filter(song -> song.getId().equals(post.getSongId()))
+            //         .map(song -> {
+            //             post.setSong(song);
+            //             return post;
+            //         })
+            // );
+            return joinedFlux;
         };
     }
 
@@ -60,13 +78,22 @@ public class FeedService {
             posts.doOnNext(post -> {
                 String text;
                 if (post.getSong() != null) {
-                    text = String.format("\n#%s# Publicado por %s: %s - %s.", post.getCreatedAt().toString(),
+                    text = String.format("[FEED][%s] Publicado por %s: %s - %s.", post.getCreatedAt().toString(),
                             post.getUsername(), post.getSong().getName(), post.getSong().getArtist());
                 } else {
-                    text = String.format("\n#%s# Publicado por %s: música não encontrada.",
+                    text = String.format("[FEED][%s] Publicado por %s: música não encontrada.",
                             post.getCreatedAt().toString(), post.getUsername());
                 }
                 System.out.println(text);
+            }).subscribe();
+        };
+    }
+
+    @Bean
+    public Consumer<Flux<String>> printErrorsFeed() {
+        return errors -> {
+            errors.doOnNext(error -> {
+                System.out.println("[ERRORS] " + error);
             }).subscribe();
         };
     }

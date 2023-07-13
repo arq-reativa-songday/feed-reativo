@@ -7,7 +7,7 @@ spring:
       ribbon:
         enabled: 'false'
     function:
-      definition: retrieveFeedPosts;retrievePostsSongs;buildFeed;printFeedPosts
+      definition: retrieveFeedPosts;retrievePostsSongs;buildFeed;printFeedPosts;printErrorsFeed
     stream:
       bindings:
         retrieveFeedPosts-in-0:
@@ -28,6 +28,8 @@ spring:
           destination: feed
         printFeedPosts-in-0:
           destination: feed
+        printErrorsFeed-in-0:
+          destination: errorsfeed
       # kafka:
       #   binder:
       #     brokers: localhost:9092
