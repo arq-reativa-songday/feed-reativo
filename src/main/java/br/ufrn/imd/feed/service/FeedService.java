@@ -41,14 +41,13 @@ public class FeedService {
             Flux<PostDto> posts = tuple.getT1();
             Flux<SongDto> songs = tuple.getT2();
 
+            // TODO não está funcionando como esperado
             return posts.join(songs,
                     post -> Flux.just(post.getSongId()),
                     song -> Flux.never(),
                     (post, song) -> {
                         post.setSong(song);
                         return post;
-                    }).doFirst(() -> {
-                        System.out.println("# construir feed...");
                     }).doOnNext(p -> {
                         System.out.println("# post com música! id: " + p.getId());
                     });
@@ -68,7 +67,7 @@ public class FeedService {
                             post.getCreatedAt().toString(), post.getUsername());
                 }
                 System.out.println(text);
-            });
+            }).subscribe();
         };
     }
 }
