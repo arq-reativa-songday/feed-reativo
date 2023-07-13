@@ -1,179 +1,74 @@
 package br.ufrn.imd.feed.service;
 
-import java.util.Date;
-import java.util.List;
-import java.util.Set;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 
-import br.ufrn.imd.feed.client.SongDayClient;
-import br.ufrn.imd.feed.client.SongsClient;
+import br.ufrn.imd.feed.dto.GenerateFeedDto;
 import br.ufrn.imd.feed.dto.PostDto;
-import br.ufrn.imd.feed.dto.SearchPostsCountDto;
-import br.ufrn.imd.feed.dto.SearchPostsDto;
 import br.ufrn.imd.feed.dto.SongDto;
-import br.ufrn.imd.feed.exception.NotFoundException;
-import br.ufrn.imd.feed.exception.ServicesCommunicationException;
-import br.ufrn.imd.feed.model.Feed;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
+import reactor.util.function.Tuple2;
+import reactor.util.function.Tuples;
 
-@Service
+@Configuration
 public class FeedService {
-    @Autowired
-    private SongDayClient songDayClient;
+    @Bean
+    public Function<Flux<GenerateFeedDto>, Flux<GenerateFeedDto>> retrieveFeedPosts() {
+        // TODO talvez verificar cache e obter dados de lá? Se não encontra, buscar e
+        // salva no cache
+        return input -> {
+            return input.doOnNext(
+                    dto -> System.out.println("\n\n\n### Atualizar feed de " + dto.getUsername() + "...\n\n\n"));
+        };
+    }
 
-    @Autowired
-    private SongsClient songsClient;
-
-    public Mono<Feed> generateFeed(String username, Date lastFeedDate, int offset, int limit) {
-        // buscar pessoas que o usuário segue
-        Mono<Set<String>> followeesMono = this.findFollowees(username);
-
-        Mono<Long> songs = songsClient.count()
-                .next()
-                .onErrorResume(throwable -> {
-                    return Mono.just(0L);
-                });
-
-        return followeesMono.zipWith(songs).flatMap(t -> {
-            Set<String> followees = t.getT1();
-            Long songsCount = t.getT2();
-
-            Date updatedAtOrigin = new Date();
-            // buscar posts para o feed
-            Mono<List<PostDto>> postsList = this.findPosts(new SearchPostsDto(offset, limit, followees)).collectList();
-
-            return postsList.flatMap(posts -> {
-                Date updatedAt = updatedAtOrigin;
-                if (posts.size() > 0) {
-                    Date mostRecentPostDate = posts.get(0).getCreatedAt();
-                    updatedAt = new Date(mostRecentPostDate.getTime() + 1);
-                }
-
-                if (lastFeedDate != null) {
-                    return findPostsCount(new SearchPostsCountDto(lastFeedDate, updatedAt, followees))
-                            .zipWith(Mono.just(updatedAt)).flatMap(tuple -> {
-                                Long newsPosts = tuple.getT1();
-                                Date date = tuple.getT2();
-
-                                return Mono.just(
-                                        Feed.builder()
-                                                .username(username)
-                                                .updatedAt(date)
-                                                .posts(posts)
-                                                .offset(offset)
-                                                .limit(limit)
-                                                .size(posts.size())
-                                                .newsPosts(newsPosts)
-                                                .totalSongs(songsCount)
-                                                .build());
-                            });
-                }
-
-                return Mono.just(
-                        Feed.builder()
-                                .username(username)
-                                .updatedAt(updatedAt)
-                                .posts(posts)
-                                .offset(offset)
-                                .limit(limit)
-                                .size(posts.size())
-                                .newsPosts(null)
-                                .totalSongs(songsCount)
-                                .build());
+    @Bean
+    public Function<Flux<PostDto>, Tuple2<Flux<PostDto>, Flux<String>>> retrievePostsSongs() {
+        return posts -> {
+            Flux<String> songsIds = posts.map(PostDto::getSongId).doOnNext(id -> {
+                System.out.println("# id de música a ser buscado: " + id);
             });
-        });
+            return Tuples.of(posts, songsIds);
+        };
     }
 
-    private Flux<PostDto> findPosts(SearchPostsDto searchPostsDto) {
-        return songDayClient.getAll(Mono.just(searchPostsDto))
-                .onErrorResume(throwable -> {
-                    if (throwable.getLocalizedMessage().contains("404 Not Found")) {
-                        return Mono.empty();
-                    }
-                    return Mono.error(new ServicesCommunicationException(
-                            "Erro durante a comunicação com SongDay para recuperar as publicações: "
-                                    + throwable.getLocalizedMessage()));
-                });
-    }
+    @Bean
+    public Function<Tuple2<Flux<PostDto>, Flux<SongDto>>, Flux<PostDto>> buildFeed() {
+        return tuple -> {
+            Flux<PostDto> posts = tuple.getT1();
+            Flux<SongDto> songs = tuple.getT2();
 
-    private Mono<Long> findPostsCount(SearchPostsCountDto searchPostsCountDto) {
-        return songDayClient.searchPostsCount(Mono.just(searchPostsCountDto))
-                .onErrorResume(throwable -> {
-                    return Mono.error(new ServicesCommunicationException(
-                            "Erro durante a comunicação com SongDay para recuperar a quantidade de novas publicações: "
-                                    + throwable.getLocalizedMessage()));
-                })
-                .next();
-    }
-
-    private Mono<Set<String>> findFollowees(String username) {
-        return songDayClient.getFolloweesByUsername(username)
-                .onErrorResume(throwable -> {
-                    if (throwable.getLocalizedMessage().contains("404 Not Found")) {
-                        return Mono.error(new NotFoundException("Usuário não encontrado"));
-                    }
-                    return Mono.error(new ServicesCommunicationException(
-                            "Erro durante a comunicação com SongDay para recuperar os usuários seguidos: "
-                                    + throwable.getLocalizedMessage()));
-                })
-                .next();
-    }
-
-    private Mono<SongDto> findSongById(String id) {
-        return songsClient.findById(id)
-                .next()
-                .onErrorResume(throwable -> {
-                    if (throwable.getLocalizedMessage().contains("404 Not Found")) {
-                        return Mono.empty();
-                    }
-                    return Mono.error(new ServicesCommunicationException(
-                            "Erro durante a comunicação com Songs para recuperar a música: "
-                                    + throwable.getLocalizedMessage()));
-                });
-    }
-
-    public Flux<PostDto> findFeedPosts(String username, int offset, int limit) {
-        // buscar pessoas que o usuário segue
-        return this.findFollowees(username)
-                .flatMapMany(followees -> {
-                    // buscar posts para o feed
-                    Flux<PostDto> posts = this.findPosts(new SearchPostsDto(offset, limit, followees));
-
-                    return posts.flatMap(post -> {
-                        // para cada post, buscar os dados da música
-                        return this.findSongById(post.getSongId())
-                                .flatMap(song -> {
-                                    if (song != null && song.getId() != null)
-                                        post.setSong(song);
-                                    return Mono.just(post);
-                                });
+            return posts.join(songs,
+                    post -> Flux.just(post.getSongId()),
+                    song -> Flux.never(),
+                    (post, song) -> {
+                        post.setSong(song);
+                        return post;
+                    }).doFirst(() -> {
+                        System.out.println("# construir feed...");
+                    }).doOnNext(p -> {
+                        System.out.println("# post com música! id: " + p.getId());
                     });
-                });
+        };
     }
 
-    // Essa solução não está funcionando.
-    // Além disso, quando existir posts com a mesma música, o `Flux<SongDto> songs`
-    // não possuirá repetição e isso seria um problema pro zipWith.
-    // public Flux<PostDto> findFeedPosts(String username, int offset, int limit) {
-    //     // buscar pessoas que o usuário segue
-    //     return this.findFollowees(username)
-    //             .flatMapMany(followees -> {
-    //                 // buscar posts para o feed
-    //                 Flux<PostDto> posts = this.findPosts(new SearchPostsDto(offset, limit, followees)).cache();
-
-    //                 // buscar músicas de cada post
-    //                 Flux<SongDto> songs = songsClient.findAllById(posts.map(PostDto::getSongId));
-
-    //                 return posts.zipWith(songs).flatMap(tuple -> {
-    //                     PostDto post = tuple.getT1();
-    //                     SongDto song = tuple.getT2();
-    //                     if (song != null && song.getId() != null)
-    //                         post.setSong(song);
-    //                     return Mono.just(post);
-    //                 });
-    //             });
-    // }
+    @Bean
+    public Consumer<Flux<PostDto>> printFeedPosts() {
+        return posts -> {
+            posts.doOnNext(post -> {
+                String text;
+                if (post.getSong() != null) {
+                    text = String.format("\n#%s# Publicado por %s: %s - %s.", post.getCreatedAt().toString(),
+                            post.getUsername(), post.getSong().getName(), post.getSong().getArtist());
+                } else {
+                    text = String.format("\n#%s# Publicado por %s: música não encontrada.",
+                            post.getCreatedAt().toString(), post.getUsername());
+                }
+                System.out.println(text);
+            });
+        };
+    }
 }

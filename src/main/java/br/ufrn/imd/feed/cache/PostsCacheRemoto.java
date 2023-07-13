@@ -7,18 +7,14 @@ import org.redisson.api.RMapCacheReactive;
 import org.redisson.api.RedissonReactiveClient;
 import org.redisson.client.codec.Codec;
 import org.redisson.codec.TypedJsonJacksonCodec;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import br.ufrn.imd.feed.dto.PostDto;
-import br.ufrn.imd.feed.service.FeedService;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @Component
 public class PostsCacheRemoto {
-    @Autowired
-    private FeedService feedService;
     private RMapCacheReactive<String, List<PostDto>> map;
 
     public PostsCacheRemoto(RedissonReactiveClient redissonClient) {
@@ -37,7 +33,8 @@ public class PostsCacheRemoto {
     }
 
     private Flux<PostDto> generateFeed(String username, int offset, int limit) {
-        Flux<PostDto> posts = feedService.findFeedPosts(username, offset, limit).cache();
+        // Flux<PostDto> posts = feedService.findFeedPosts(username, offset, limit).cache();
+        Flux<PostDto> posts = Flux.empty();
         String key = getKey(username, offset, limit);
 
         return posts
